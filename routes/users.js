@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const { User, validate } = require("../models/user");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 router.post("/", async (req, res) => {
   console.log("Received signup request with data:", req.body);
 
@@ -53,21 +53,51 @@ router.get("/:userId", async (req, res) => {
   }
 });
 
+// router.put("/:userId", async (req, res) => {
+//   const { userId } = req.params;
+//   const updatedData = req.body;
+
+//   try {
+//     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
+//       new: true,
+//     });
+//     if (updatedUser) {
+//       res.json(updatedUser); 
+//     } else {
+//       res.status(404).json({ message: "User not found" });
+//     }
+//   } catch (error) {
+//     res.status(500).json({ message: "Failed to update user", error });
+//   }
+// });
+
+
 router.put("/:userId", async (req, res) => {
   const { userId } = req.params;
   const updatedData = req.body;
 
   try {
+    // If password is being updated, hash it
+    if (updatedData.password) {
+      const salt = await bcrypt.genSalt(10);
+      updatedData.password = await bcrypt.hash(updatedData.password, salt);
+    }
+
     const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
       new: true,
     });
     if (updatedUser) {
-      res.json(updatedUser); 
+      // Remove password from response
+      const userResponse = updatedUser.toObject();
+      delete userResponse.password;
+      res.json(userResponse);
     } else {
       res.status(404).json({ message: "User not found" });
     }
   } catch (error) {
-    res.status(500).json({ message: "Failed to update user", error });
+    res
+      .status(500)
+      .json({ message: "Failed to update user", error: error.message });
   }
 });
 module.exports = router;
